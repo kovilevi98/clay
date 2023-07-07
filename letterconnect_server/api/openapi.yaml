@@ -1,0 +1,201 @@
+openapi: 3.0.1
+info:
+  title: Letter Connect API
+  version: 1.0.0
+servers:
+- url: http://localhost
+paths:
+  /games:
+    post:
+      summary: Creates a new game
+      description: "The request should contain the the initial node layout. The allowed\
+        \ values for the node are: `a`/`b`/`c`. Returns the id of the game that has\
+        \ been successfully created. The id of each node MUST be sequentially assigned\
+        \ starting from 1, in the same order the nodes are provided."
+      operationId: gamesPOST
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/games_body'
+      responses:
+        "200":
+          description: The game was created succesfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_200'
+        "400":
+          description: Bad Request
+      x-swagger-router-controller: Default
+  /games/{id}:
+    get:
+      summary: Gets game details.
+      description: The response object contains the current snapshot of the provided
+        game. Please check the `Game` object for more detailed info.
+      operationId: gamesIdGET
+      parameters:
+      - name: id
+        in: path
+        description: The id of the game
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        "404":
+          description: Game not found
+      x-swagger-router-controller: Default
+  /games/{id}/move:
+    post:
+      summary: "Make a move. Takes two node ids (`from`, `to`)."
+      operationId: gamesIdMovePOST
+      parameters:
+      - name: id
+        in: path
+        description: The id of the game
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/id_move_body'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        "400":
+          description: |-
+            `game_is_over`: the game is already completed. This return code takes precedence with respect to the following one.
+             `invalid_move`: the move does not respect the rules of the game.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_400'
+              examples:
+                invalid_move:
+                  value:
+                    error_type: invalid_move
+                game_is_over:
+                  value:
+                    error_type: game_is_over
+      x-swagger-router-controller: Default
+components:
+  schemas:
+    Player:
+      type: string
+      description: First or second player
+      enum:
+      - first
+      - second
+    NodeType:
+      type: string
+      description: The type of a Node
+      enum:
+      - a
+      - b
+      - c
+    Node:
+      required:
+      - connections
+      - id
+      - type
+      properties:
+        id:
+          type: integer
+        type:
+          $ref: '#/components/schemas/NodeType'
+        connections:
+          maxItems: 2
+          minItems: 0
+          type: array
+          items:
+            type: integer
+      description: A single node inside a game
+      example:
+        id: 0
+        type: a
+        connections:
+        - 6
+        - 6
+    Game:
+      required:
+      - current_player
+      - nodes
+      properties:
+        winner:
+          $ref: '#/components/schemas/Player'
+        current_player:
+          $ref: '#/components/schemas/Player'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'
+      description: "The `winner` is not `null` only if the game is over (no more moves\
+        \ are possible) and is populated with the player that made the last valid\
+        \ move. The `current_player` is the player that would make the next move,\
+        \ even if no more moves are available."
+      example:
+        winner: first
+        nodes:
+        - id: 0
+          type: a
+          connections:
+          - 6
+          - 6
+        - id: 0
+          type: a
+          connections:
+          - 6
+          - 6
+        current_player: null
+    games_body:
+      required:
+      - nodes
+      type: object
+      properties:
+        nodes:
+          maxItems: 50
+          minItems: 3
+          type: array
+          description: The nodes the game should contain.
+          items:
+            $ref: '#/components/schemas/NodeType'
+    inline_response_200:
+      type: object
+      properties:
+        game_id:
+          type: string
+      example:
+        game_id: game_id
+    id_move_body:
+      required:
+      - from
+      - to
+      type: object
+      properties:
+        from:
+          type: integer
+        to:
+          type: integer
+    inline_response_400:
+      properties:
+        error_type:
+          type: string
+          enum:
+          - invalid_move
+          - game_is_over

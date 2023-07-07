@@ -1,0 +1,135 @@
+openapi: 3.0.1
+info:
+  title: Letter Connect API
+  version: 1.0.0
+servers:
+  - url: http://localhost
+paths:
+  "/games":
+    post:
+      summary: Creates a new game
+      description: "The request should contain the the initial node layout. The allowed values for the node are: `a`/`b`/`c`. Returns the id of the game that has been successfully created. The id of each node MUST be sequentially assigned starting from 1, in the same order the nodes are provided."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ nodes ]
+              properties:
+                nodes:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NodeType'
+                  minItems: 3
+                  maxItems: 50
+                  description: "The nodes the game should contain."
+      responses:
+        '200':
+          description: The game was created succesfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id:
+                    type: string
+        '400':
+          description: Bad Request
+  "/games/{id}":
+    get:
+      summary: Gets game details.
+      description: The response object contains the current snapshot of the provided game. Please check the `Game` object for more detailed info.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the game
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '404':
+          description: Game not found
+  "/games/{id}/move":
+    post:
+      summary: Make a move. Takes two node ids (`from`, `to`).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the game
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ from, to ]
+              properties:
+                from:
+                  type: integer
+                to:
+                  type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: "`game_is_over`: the game is already completed. This return code takes precedence with respect to the following one.\n `invalid_move`: the move does not respect the rules of the game."
+          content:
+            application/json:
+              schema:
+                properties:
+                  error_type:
+                    enum: [ invalid_move, game_is_over ]
+                    type: string
+              examples:
+                invalid_move:
+                  value: { error_type: invalid_move }
+                game_is_over:
+                  value: { error_type: game_is_over }
+components:
+  schemas:
+    Player:
+      description: First or second player
+      enum: [ first, second ]
+      type: string
+    NodeType:
+      description: The type of a Node
+      enum: [ a, b, c ]
+      type: string
+    Node:
+      description: A single node inside a game
+      required: [ id, type, connections ]
+      properties:
+        id:
+          type: integer
+        type:
+          $ref: '#/components/schemas/NodeType'
+        connections:
+          type: array
+          minItems: 0
+          maxItems: 2
+          items:
+            type: integer
+    Game:
+      description: The `winner` is not `null` only if the game is over (no more moves are possible) and is populated with the player that made the last valid move. The `current_player` is the player that would make the next move, even if no more moves are available.
+      required: [ nodes, current_player ]
+      properties:
+        winner:
+          $ref: '#/components/schemas/Player'
+        current_player:
+          $ref: '#/components/schemas/Player'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'
